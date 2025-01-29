@@ -1,0 +1,49 @@
+from flask import Flask, render_template, request, Response
+from flask_socketio import SocketIO, emit
+import random
+import time
+
+app = Flask(__name__)
+app.secret_key = 'je_super_geheime_sleutel'  # Verander deze sleutel
+socketio = SocketIO(app)
+
+# Gebruikersnaam en wachtwoord voor basic authentication
+USERNAME = "jouwgebruikersnaam"
+PASSWORD = "jouwwachtwoord"
+
+# Functie om toegang te verifiëren
+def check_auth(username, password):
+    return username == USERNAME and password == PASSWORD
+
+# Functie om de toegang te forceren
+def authenticate():
+    return Response(
+        'Toegang geweigerd. Gelieve in te loggen.', 401,
+        {'WWW-Authenticate': 'Basic realm="Login Required"'}
+    )
+
+# Beveiligde route
+@app.route('/')
+def dashboard():
+    auth = request.authorization
+    if not auth or not check_auth(auth.username, auth.password):
+        return authenticate()
+    return render_template('index.html')
+
+# Route voor het versturen van gegevens naar het dashboard
+@app.route('/send-data')
+def send_data():
+    # Simulatie van dynamische gegevens
+    current_balance = random.randint(100, 1000)
+    daily_profit = random.uniform(-100, 100)
+    socketio.emit('update_data', {'balance': current_balance, 'profit': daily_profit})
+    return 'Data verstuurd', 200
+
+# Real-time updates via SocketIO
+@socketio.on('connect')
+def handle_connect():
+    print("Gebruiker verbonden")
+    emit('update_data', {'balance': random.randint(100, 1000), 'profit': random.uniform(-100, 100)})
+
+if __name__ == '__main__':
+    socketio.run(app, debug=True, host="0.0.0.0")
